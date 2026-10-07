@@ -1,0 +1,48 @@
+name: XRRRDP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ignite-windows:
+    runs-on: windows-latest
+    steps:
+      - name: GPU Destekli Tam Kurulum
+        env:
+          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
+        run: |
+          Write-Host "1. RDP ve Kimlik Ayarları Mühürleniyor..."
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          
+          Write-Host "2. Yönetici ve Şifre Revizyonu..."
+          $Password = ConvertTo-SecureString $Env:RDP_PASSWORD -AsPlainText -Force
+          $User = Get-LocalUser -Name "runneradmin"
+          $User | Set-LocalUser -Password $Password
+          Add-LocalGroupMember -Group "Administrators" -Member "runneradmin" -ErrorAction SilentlyContinue
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "runneradmin" -ErrorAction SilentlyContinue
+          
+          Write-Host "3. Cloudflare Tunnel (Uçmaz Altyapı) İndiriliyor..."
+          Invoke-WebRequest https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
+          
+          Write-Host "4. TCP Quick Tunnel Açılıyor..."
+          Start-Process -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:3389" -NoNewWindow
+          
+          Write-Host "5. GPU Boost (Mesa3D) Hazırlanıyor..."
+          $DesktopPath = [Environment]::GetFolderPath("Desktop")
+          Invoke-WebRequest "https://github.com/pal1000/mesa-dist-win/releases/download/24.0.7/mesa3d-24.0.7-release-msvc.7z" -OutFile mesa.7z
+          Move-Item mesa.7z "$DesktopPath\tmmmGPU_BOOST.7z"
+          
+          Write-Host "6. Erişim Bilgileri Hazırlanıyor..."
+          Start-Sleep -s 12
+          
+          Write-Host "=================================================================="
+          Write-Host "🎉 aMATRIX IS UNSTOPPABLE!"
+          Write-Host "👉 RDP ADRESİ : Loglardaki trycloudflare.com adresini kopyala"
+          Write-Host "👤 KULLANICI  : runneradmin"
+          Write-Host "🔑 ŞİFRE      : (Tanımladığınız RDP_PASSWORD)"
+          Write-Host "=================================================================="
+          
+          Write-Host "Matrix 6 Saat Boyunca Canlı..."
+          Start-Sleep -s 21600
